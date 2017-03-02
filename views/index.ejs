@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html ng-app="app">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  </head>
+  <body>
+    <ng-view></ng-view>
+
+    <!-- external Libraries -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.25/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.25/angular-route.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.25/angular-resource.min.js"></script>
+
+    <!-- Template -->
+    <script type="text/ng-template" id="/search.html">
+        <header>
+          <h1><%= title %></h1>
+          <input type="text" ng-model="searchModel">
+          <button type="button" class="btn btn-default">Search</button>
+        </header>
+
+        <section>
+          <!-- BS 3x2x1 grid: based on 3 columns on large, 2 columns on medium, 1 columns on small -->
+          <!-- using filter Filter to display 'on the fly' on the same View sss-->
+          <ul>
+            <li ng-repeat="element in myArray | filter: searchModel">
+              <article class="row">
+                  <div class="col-lg-4 col-sm-6 col-xs-12">
+                      <img src="{{ element.image_url }}" alt="{{ element.description }}" />
+                  </div>
+                  <div class="col-lg-4 col-sm-6 col-xs-12">
+                      <div class="title">{{ element.title }}</div>
+                      <div class="price">{{ element.price | currency:'£'}}</div>
+                      <div class="description">{{ element.description }}</div>
+                  </div>
+                  <div class="col-lg-4 col-sm-6 col-xs-12 mt-16">
+                      <img src="{{ element.agent_logo }}" alt="{{ element.agent_name }}" />
+                      <div class="name">{{ element[$index].agent_name }}</div>
+                      <div class="address">{{ element[$index].agent_address }}</div>
+                      <div class="phone">{{ element[$index].agent_phone }}</div>
+                  </div>
+              </article>
+            </li>
+          </ul>
+        </section>
+    </script>
+
+    <script type="text/ng-template" id="/todoDetails.html">
+      <h1>{{ myArray.result_count }}</h1>
+      completed: todo.area<input type="checkbox" ng-model="todo.area"><br>
+      note: <textarea ng-model="todo.note"></textarea><br><br>
+
+      <button ng-click="update()">Update</button>
+      <button ng-click="remove()">Remove</button>
+      <a href="/">Cancel</a>
+
+
+      <h1>{{ todo.listing.num_bedrooms }}</h1>
+      completed: todo.completed<input type="checkbox" ng-model="todo.area"><br>
+      note: <textarea ng-model="todo.note"></textarea><br><br>
+
+      <button ng-click="update()">Update</button>
+      <button ng-click="remove()">Remove</button>
+      <a href="/">Cancel</a>
+    </script>
+
+
+    <script>
+      angular.module('app', ['ngRoute', 'ngResource'])
+
+        //---------------
+        // Services
+        //---------------
+
+        .factory('Todos', ['$resource', function($resource){
+          return $resource('/todos/:id', null, {
+            'update': { method:'PUT' }
+          });
+        }])
+
+        //---------------
+        // Controllers
+        //---------------
+
+        .controller('TodoController', ['$scope', '$http', '$timeout', 'Todos', function ($scope, $http, $timeout, Todos) {
+          $scope.editing = [];
+          $scope.todos = Todos.query();
+  
+          $scope.saveSchema = function(data){
+            var todo = new Todos(data);         
+            todo.$save(function(){
+              $scope.todos.push(todo);
+              // tyding the Array of Objects
+              $scope.listing = todo.listing
+              $scope.myArray = data.listing;
+              $scope.area =  data.area;
+              $scope.result_count =  data.result_count;
+              console.log( Object.values(angular.fromJson(data)) );
+            });
+          }
+
+          $scope.showSchema = function(data){
+              // tyding the Array of Objects
+              $scope.listing = data.listing
+              $scope.myArray = data.listing;
+              $scope.area =  data.area;
+              $scope.result_count =  data.result_count;
+              console.log( Object.values(angular.fromJson(data)) );
+          }
+
+          // Loading up the data.json
+          $scope.init = function() {
+            $http({method:'GET',         
+            url:'../json/data.json'
+            })
+            .then(function successCallback(data) {
+               console.log("yay! We have the json loaded, and injected on the db: " + data.status)
+               $scope.extData = data;
+               // injecting into db (timeouting because of $digest = ideally we don't need this)
+              $timeout( function(){
+                ($scope.todos.length === 0)? $scope.saveSchema($scope.extData.data): $scope.showSchema($scope.extData.data);
+              }, 50 );
+            }, function errorCallback(response) {
+               console.error("Dout! We don't have the json loaded, or injecting it to the db: " + response)
+            });
+          }
+
+          $scope.update = function(index){
+            var todo = $scope.todos[index];
+            Todos.update({id: todo._id}, todo);
+            $scope.editing[index] = false;
+          }
+
+          $scope.edit = function(index){
+            $scope.editing[index] = angular.copy($scope.todos[index]);
+          }
+
+          $scope.cancel = function(index){
+            $scope.todos[index] = angular.copy($scope.editing[index]);
+            $scope.editing[index] = false;
+          }
+
+          $scope.remove = function(index){
+            var todo = $scope.todos[index];
+            Todos.remove({id: todo._id}, function(){
+              $scope.todos.splice(index, 1);
+            });
+          }
+
+          $scope.init();
+
+        }])
+
+        .controller('TodoDetailCtrl', ['$scope', '$routeParams', 'Todos', '$location', function ($scope, $routeParams, Todos, $location) {
+          $scope.todo = Todos.get({id: $routeParams.id });
+
+          $scope.remove = function(){
+            Todos.remove({id: $scope.todo._id}, function(){
+              $location.url('/');
+            });
+          }
+        }])
+
+
+
+        //---------------
+        // Routes
+        //---------------
+        .config(['$routeProvider', function ($routeProvider) {
+          $routeProvider
+            .when('/', {
+              templateUrl: '/search.html',
+              controller: 'TodoController'
+            })
+
+            .when('/:id', {
+              templateUrl: '/todoDetails.html',
+              controller: 'TodoDetailCtrl'
+           });
+        }]);
+
+    </script>
+  </body>
+</html>
