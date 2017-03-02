@@ -9,10 +9,10 @@
 ### 'L O N D O N ,  U K' }
 
 
-# My Portfolio<br>
+# Portfolio<br>
 <a href="http://www.leolanese.com" target="_blank">http://www.leolanese.com</a><br>
 
-# My Blog:<br>
+# Blog:<br>
 <a href="http://www.leolanese.com/blog" target="_blank">www.leolanese.com/blog</a><br>
 
 # Twitter:<br>
